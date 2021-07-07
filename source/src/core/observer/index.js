@@ -29,21 +29,21 @@ export function toggleObserving (value: boolean) {
 }
 
 /**
- * Observer class that is attached to each observed
- * object. Once attached, the observer converts the target
- * object's property keys into getter/setters that
- * collect dependencies and dispatch updates.
+ * Observer class that is attached to each observed object
+ * Once attached, the observer converts the target object's property keys into getter/setters that collect dependencies and dispatch updates.
+ * 追加到每一个观测对象上面的观测类。一旦被追加，目表对象的属性key会被添加getter.setter来进行依赖收集和更新调度
  */
 export class Observer {
   value: any;
   dep: Dep;
-  vmCount: number; // number of vms that have this object as root $data
+  vmCount: number; // number of vms that have this object as root $data---将该对象作为root $data的vms的数量
 
   constructor (value: any) {
     this.value = value
     this.dep = new Dep()
     this.vmCount = 0
     def(value, '__ob__', this)
+    // 当观测对象是数组时，需要另外处理（重写array的其中基本方法，在重写的过程中对数组进行追加观测）
     if (Array.isArray(value)) {
       if (hasProto) {
         protoAugment(value, arrayMethods)
