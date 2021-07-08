@@ -122,13 +122,145 @@ Vue.prototype._init = function (options?: Object) {
 
 4. `initInjectioons():`
 
+   1. `provide 和 inject选项绑定的数据不是响应式的`
+   2. 先`inject`再`state`最后`provide`是因为`inject`中的数据可能会被`state`用到，`provide`的数据也可能是`state`中的数据
+
+   ```javascript
+   // 将子组件中的inject转化为键值对的形式
+   const result = resolveInject(vm.$options.inject, vm)
+     if (result) {
+       toggleObserving(false)
+         // 添加值到实例上但是并不添加依赖，但是如果本身的值是一个可监听的对象，那么其对象的值还是可响应的
+       Object.keys(result).forEach(key => {
+         defineReactive(vm, key, result[key])
+       }
+       toggleObserving(true)
+     }
+   ```
+
 5. `initState():`
+
+   ```javascript
+   export function initState (vm: Component) {
+       // vue2之后将数据的侦测粒度提高到了组件层面，通过_watchers属性，用来存放这个组件内用到的所有状态的依赖
+     vm._watchers = []
+     const opts = vm.$options
+     // 根据options中有哪些选项就去初始化对应的选项：注意初始化的顺序是有一定的讲究的，date可以访问props，而watch又可以监听data和props
+     if (opts.props) initProps(vm, opts.props)
+     if (opts.methods) initMethods(vm, opts.methods)
+     if (opts.data) {
+       initData(vm)
+     } else {
+       observe(vm._data = {}, true /* asRootData */)
+     }
+     if (opts.computed) initComputed(vm, opts.computed)
+     if (opts.watch && opts.watch !== nativeWatch) {
+       initWatch(vm, opts.watch)
+     }
+   }
+   ```
 
 6. `initProvide():`
 
+模板编译阶段：
+
+vue其实是包含两个版本的
+
+1. 完整版本
+2. 只包含运行时版本
+
+开发时候使用的都是完整版本，部署的时候使用的是只包含运行时的版本，因为部署时候我们使用打包工具将template已经编译成render函数了，可以直接初始化完直接进入挂载阶段
+
+不然就将用户写的template模板编译成render函数。
 
 
 
+
+
+挂载阶段：
+
+```javascript
+Vue.prototype.$mount = function (el,hydrating) {
+  el = el && inBrowser ? query(el) : undefined;
+  return mountComponent(this, el, hydrating)
+};
+
+export function mountComponent (vm,el,hydrating) {
+    vm.$el = el
+    if (!vm.$options.render) {
+        vm.$options.render = createEmptyVNode
+    }
+    callHook(vm, 'beforeMount')
+	// 对比新旧vNode，并将最新的vNode渲染到视图中
+    let updateComponent
+
+    updateComponent = () => {
+        vm._update(vm._render(), hydrating)
+    }
+    // 执行updateComponent() 触发依赖收集
+    new Watcher(vm, updateComponent, noop, {
+        before () {
+            if (vm._isMounted) {
+                callHook(vm, 'beforeUpdate')
+            }
+        }
+    }, true /* isRenderWatcher */)
+    hydrating = false
+
+    if (vm.$vnode == null) {
+        vm._isMounted = true
+        callHook(vm, 'mounted')
+    }
+    return vm
+}
+```
+
+销毁阶段：
+
+```javascript
+Vue.prototype.$destroy = function () {
+  const vm: Component = this
+  if (vm._isBeingDestroyed) {
+    return
+  }
+  callHook(vm, 'beforeDestroy')
+  vm._isBeingDestroyed = true
+  // remove self from parent
+  const parent = vm.$parent
+  if (parent && !parent._isBeingDestroyed && !vm.$options.abstract) {
+    remove(parent.$children, vm)
+  }
+  // teardown watchers
+  if (vm._watcher) {
+    vm._watcher.teardown()
+  }
+  let i = vm._watchers.length
+  while (i--) {
+    vm._watchers[i].teardown()
+  }
+  // remove reference from data ob
+  // frozen object may not have observer.
+  if (vm._data.__ob__) {
+    vm._data.__ob__.vmCount--
+  }
+  // call the last hook...
+  vm._isDestroyed = true
+  // invoke destroy hooks on current rendered tree
+  vm.__patch__(vm._vnode, null)
+  // fire destroyed hook
+  callHook(vm, 'destroyed')
+  // turn off all instance listeners.
+  vm.$off()
+  // remove __vue__ reference
+  if (vm.$el) {
+    vm.$el.__vue__ = null
+  }
+  // release circular reference (##6759)
+  if (vm.$vnode) {
+    vm.$vnode.parent = null
+  }
+}
+```
 
 
 
