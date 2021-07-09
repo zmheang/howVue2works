@@ -6,6 +6,7 @@
   export default {
     name: "DemoComponent1",
     mounted(){
+      console.log(this)
       console.log('Comp 1 mounted')
     },
     activated(){
