@@ -404,7 +404,7 @@
     /**
      * Whether to record perf
      */
-    performance: false,
+    performance: true,
 
     /**
      * Error handler for watcher errors
@@ -4971,11 +4971,13 @@
       vm._uid = uid$3++;
 
       var startTag, endTag;
-      /* istanbul ignore if */
+      /* 调用api查看当前页面的性能 */
       if (config.performance && mark) {
         startTag = "vue-perf-start:" + (vm._uid);
         endTag = "vue-perf-end:" + (vm._uid);
         mark(startTag);
+        const allEntries = performance.getEntriesByType("mark");
+        console.log(allEntries);
       }
 
       // a flag to avoid this being observed
